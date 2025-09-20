@@ -1,10 +1,10 @@
 #!/bin/bash
 
 APP_DIR="/var/www/convocation-faiss"
-EC2_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)  # FIXED: Correct metadata URL
+EC2_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
 
 if [ -z "$EC2_IP" ]; then
-    EC2_IP=$(hostname -I | awk '{print $1}')  # Fallback to local IP
+    EC2_IP=$(hostname -I | awk '{print $1}')
 fi
 
 echo "Starting all services..."
@@ -26,8 +26,8 @@ cd $APP_DIR/backend
 pm2 start ecosystem.config.js
 pm2 save
 
-# Setup PM2 to start on boot
-pm2 startup ubuntu --hp /home/ubuntu
+# Setup PM2 to start on boot (use ec2-user instead of ubuntu)
+pm2 startup systemd -u ec2-user --hp /home/ec2-user
 
 # Start Nginx
 sudo systemctl restart nginx
@@ -56,13 +56,13 @@ netstat -tlnp | grep -E ':80|:3001|:5000' 2>/dev/null || ss -tlnp | grep -E ':80
 
 echo ""
 echo "=== Quick Health Check ==="
-echo "Testing Flask API: curl http://localhost:5000/health"
+echo "Testing Flask API:"
 curl -s http://localhost:5000/health | head -1 || echo "Flask API not responding"
 
 echo ""
-echo "Testing Node.js API: curl http://localhost:3001/api/health"  
+echo "Testing Node.js API:"
 curl -s http://localhost:3001/api/health | head -1 || echo "Node.js API not responding"
 
 echo ""
-echo "Testing Nginx: curl http://localhost/"
+echo "Testing Nginx:"
 curl -s -o /dev/null -w "HTTP Status: %{http_code}\n" http://localhost/ || echo "Nginx not responding"

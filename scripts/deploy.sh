@@ -1,12 +1,12 @@
 #!/bin/bash
-# scripts/deploy.sh - CORRECTED VERSION
+# scripts/deploy.sh - CORRECTED FOR AMAZON LINUX
 
-echo "Starting convocation-faiss deployment from GitHub..."
+echo "Starting convocation-faiss deployment from GitHub on Amazon Linux..."
 
 # Variables
 REPO_URL="https://github.com/ChetaliH/convocation-faiss.git"
 APP_DIR="/var/www/convocation-faiss"
-EC2_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)  # FIXED: Correct metadata URL
+EC2_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
 
 # Check if we got the IP
 if [ -z "$EC2_IP" ]; then
@@ -16,24 +16,41 @@ fi
 
 echo "Using EC2 IP: $EC2_IP"
 
-# Update system
+# Update system (Amazon Linux uses yum)
 echo "Updating system..."
-sudo apt update && sudo apt upgrade -y
+sudo yum update -y
 
-# Install required software
+# Install required software for Amazon Linux
 echo "Installing system dependencies..."
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-sudo apt-get install -y nodejs git
-sudo apt install python3 python3-pip python3-venv build-essential cmake -y
-sudo apt-get install -y libopenblas-dev liblapack-dev libx11-dev libgtk-3-dev python3-dev
-sudo npm install -g pm2
-sudo apt install nginx -y
 
-# Clone repository
+# Install Node.js 18
+curl -sL https://rpm.nodesource.com/setup_18.x | sudo bash -
+sudo yum install -y nodejs
+
+# Install Git (usually pre-installed)
+sudo yum install -y git
+
+# Install Python 3 and development tools
+sudo yum install -y python3 python3-pip python3-devel
+sudo yum groupinstall -y "Development Tools"
+sudo yum install -y cmake
+
+# Install additional dependencies for face recognition
+sudo yum install -y openblas-devel lapack-devel
+sudo yum install -y libX11-devel gtk3-devel
+
+# Install PM2 globally
+sudo npm install -g pm2
+
+# Install Nginx
+sudo amazon-linux-extras enable nginx1
+sudo yum install -y nginx
+
+# Clone repository (use ec2-user instead of ubuntu)
 echo "Cloning repository..."
 sudo rm -rf $APP_DIR
 sudo mkdir -p $APP_DIR
-sudo chown -R ubuntu:ubuntu $APP_DIR
+sudo chown -R ec2-user:ec2-user $APP_DIR
 cd /var/www
 git clone $REPO_URL convocation-faiss
 cd $APP_DIR
@@ -64,9 +81,10 @@ if [ ! -f "requirements.txt" ]; then
 fi
 python3 -m venv venv
 source venv/bin/activate
+pip install --upgrade pip
 pip install -r requirements.txt
 
-# Setup frontend-new (CORRECTED: Using frontend-new based on your file structure)
+# Setup frontend-new
 echo "Setting up React frontend..."
 cd $APP_DIR/frontend-new
 if [ ! -f "package.json" ]; then

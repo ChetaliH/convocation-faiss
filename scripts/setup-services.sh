@@ -1,7 +1,8 @@
 #!/bin/bash
+# scripts/setup-services.sh - CORRECTED FOR AMAZON LINUX
 
 APP_DIR="/var/www/convocation-faiss"
-EC2_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)  # FIXED: Correct metadata URL
+EC2_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
 
 if [ -z "$EC2_IP" ]; then
     echo "Warning: Could not get EC2 public IP. Using localhost for now."
@@ -10,7 +11,7 @@ fi
 
 echo "Configuring services with IP: $EC2_IP"
 
-# Setup Flask systemd service
+# Setup Flask systemd service (use ec2-user instead of ubuntu)
 sudo tee /etc/systemd/system/flask-api.service > /dev/null << EOF
 [Unit]
 Description=Flask Face Recognition API
@@ -18,7 +19,7 @@ After=network.target
 
 [Service]
 Type=simple
-User=ubuntu
+User=ec2-user
 WorkingDirectory=$APP_DIR/flask-api
 Environment=PATH=$APP_DIR/flask-api/venv/bin
 ExecStart=$APP_DIR/flask-api/venv/bin/gunicorn --bind 0.0.0.0:5000 --workers 2 --timeout 120 app:app
@@ -50,8 +51,8 @@ module.exports = {
 };
 EOF
 
-# Setup Nginx (CORRECTED: Using frontend-new/build)
-sudo tee /etc/nginx/sites-available/convocation-faiss << EOF
+# Setup Nginx
+sudo tee /etc/nginx/conf.d/convocation-faiss.conf << EOF
 server {
     listen 80;
     server_name ${EC2_IP};
@@ -96,8 +97,7 @@ EOF
 
 # Enable services
 sudo systemctl enable flask-api
-sudo ln -s /etc/nginx/sites-available/convocation-faiss /etc/nginx/sites-enabled/
-sudo rm -f /etc/nginx/sites-enabled/default
+sudo systemctl enable nginx
 
 # Test Nginx configuration
 if sudo nginx -t; then
