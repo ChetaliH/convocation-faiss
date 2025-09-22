@@ -131,6 +131,42 @@ const AuthenticatedImage = ({ filename, alt, className, isSelected, onSelect }) 
   );
 };
 
+const handlePasswordReset = async () => {
+  if (!email) {
+    setAuthError('Please enter your email address first');
+    return;
+  }
+
+  if (!isValidDomain(email)) {
+    setAuthError(`Password reset is only available for users with email addresses from: ${ALLOWED_DOMAINS.join(', ')}`);
+    return;
+  }
+
+  setIsResettingPassword(true);
+  setAuthError('');
+
+  try {
+    await sendPasswordResetEmail(auth, email);
+    setResetEmailSent(true);
+    setAuthError('');
+  } catch (error) {
+    console.error('Password reset error:', error);
+    
+    if (error.code === 'auth/user-not-found') {
+      setAuthError('No account found with this email address.');
+    } else if (error.code === 'auth/too-many-requests') {
+      setAuthError('Too many reset attempts. Please try again later.');
+    } else if (error.code === 'auth/invalid-email') {
+      setAuthError('Please enter a valid email address.');
+    } else {
+      setAuthError('Failed to send reset email. Please try again.');
+    }
+  } finally {
+    setIsResettingPassword(false);
+  }
+};
+
+
 const FaceSearchApp = () => {
   // Add debugging log to verify the environment variable
   console.log('API_BASE_URL:', API_BASE_URL);
@@ -142,6 +178,10 @@ const FaceSearchApp = () => {
   const [authError, setAuthError] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [resetEmailSent, setResetEmailSent] = useState(false);
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
 
   // Face search state
   const [searchResults, setSearchResults] = useState([]);
@@ -297,7 +337,7 @@ const FaceSearchApp = () => {
 
     try {
       await sendPasswordResetEmail(auth, email);
-      setAuthError('Password reset email sent! Check your inbox.');
+      setAuthError('Password reset email sent! Check your inbox. (If you don\'t see it, check your spam folder.)');
     } catch (error) {
       setAuthError(error.message);
     }
@@ -686,134 +726,380 @@ const FaceSearchApp = () => {
 
   // Rest of your component JSX remains the same...
   // Enhanced login page with Google Sign-in and domain info
+  // if (!user) {
+  //   return (
+  //     <div className="min-h-screen bg-gray-900 flex">
+  //       <div className="hidden lg:flex lg:w-1/2 relative">
+  //         <div className="absolute inset-0 bg-gradient-to-br from-green-600 to-green-800">
+  //           <div className="w-full h-full bg-cover bg-center relative" style={{backgroundImage: "url('/sidebar.jpg')"}}>
+  //             <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-center p-8">
+  //             </div>
+  //           </div>
+  //         </div>
+  //       </div>
+
+  //       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-gray-900">
+  //         <div className="w-full max-w-md">
+  //           <div className="lg:hidden text-center mb-8">
+  //             <div className="text-3xl font-bold text-white mb-2">KIIT Gallery</div>
+  //           </div>
+
+  //           <div className="text-center mb-8">
+  //             <h2 className="text-3xl font-bold text-white mb-2">
+  //               {authMode === 'login' ? 'Welcome back' : 'Create an account'}
+  //             </h2>
+  //             <p className="text-gray-400">
+  //               {authMode === 'login' ? (
+  //                 <>Don't have an account? <button onClick={() => setAuthMode('register')} className="text-green-500 hover:text-green-400">Sign up</button></>
+  //               ) : (
+  //                 <>Already have an account? <button onClick={() => setAuthMode('login')} className="text-green-500 hover:text-green-400">Log in</button></>
+  //               )}
+  //             </p>
+  //           </div>
+
+  //           {/* Domain restriction notice for registration */}
+  //           {authMode === 'register' && (
+  //             <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-blue-400 text-sm">
+  //               <div className="font-medium mb-1">Registration Requirements:</div>
+  //               <div className="text-xs">Only email addresses from these domains are allowed:</div>
+  //               <div className="text-xs font-mono mt-1">
+  //                 {ALLOWED_DOMAINS.join(', ')}
+  //               </div>
+  //             </div>
+  //           )}
+
+  //           {authError && (
+  //             <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
+  //               {authError}
+  //             </div>
+  //           )}
+
+  //           <div className="space-y-4">
+  //             <input
+  //               type="email"
+  //               placeholder="Email"
+  //               value={email}
+  //               onChange={(e) => setEmail(e.target.value)}
+  //               className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+  //             />
+
+  //             <div className="relative">
+  //               <input
+  //                 type="password"
+  //                 placeholder="Enter your password"
+  //                 value={password}
+  //                 onChange={(e) => setPassword(e.target.value)}
+  //                 className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent pr-12"
+  //               />
+  //             </div>
+
+  //             <button
+  //               onClick={handleAuth}
+  //               disabled={authLoading}
+  //               className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white py-3 px-4 rounded-lg font-medium transition-colors duration-200"
+  //             >
+  //               {authLoading ? (
+  //                 <div className="flex items-center justify-center">
+  //                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+  //                   Loading...
+  //                 </div>
+  //               ) : (
+  //                 authMode === 'login' ? 'Sign In' : 'Create account'
+  //               )}
+  //             </button>
+  //           </div>
+
+  //           <div className="my-6 flex items-center">
+  //             <div className="flex-1 border-t border-gray-700"></div>
+  //             <span className="px-4 text-gray-400 text-sm">Or continue with</span>
+  //             <div className="flex-1 border-t border-gray-700"></div>
+  //           </div>
+
+  //           {/* Google Sign-in Button */}
+  //           <button
+  //             onClick={handleGoogleSignIn}
+  //             disabled={authLoading}
+  //             className="w-full bg-white hover:bg-gray-50 disabled:bg-gray-300 disabled:cursor-not-allowed text-gray-900 py-3 px-4 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center border border-gray-300"
+  //           >
+  //             {authLoading ? (
+  //               <div className="flex items-center justify-center">
+  //                 <div className="w-5 h-5 border-2 border-gray-600 border-t-transparent rounded-full animate-spin mr-2"></div>
+  //                 Loading...
+  //               </div>
+  //             ) : (
+  //               <>
+  //                 <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
+  //                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+  //                   <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+  //                   <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+  //                   <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+  //                 </svg>
+  //                 Continue with Google
+  //               </>
+  //             )}
+  //           </button>
+
+  //           {/* {authMode === 'login' && (
+  //             <div className="text-center mt-6">
+  //               <button
+  //                 onClick={handlePasswordReset}
+  //                 className="text-green-500 hover:text-green-400 text-sm"
+  //               >
+  //                 Forgot your password?
+  //               </button>
+  //             </div>
+  //           )} */}
+  //         </div>
+  //       </div>
+  //     </div>
+  //   );
+  // }
+
   if (!user) {
-    return (
-      <div className="min-h-screen bg-gray-900 flex">
-        <div className="hidden lg:flex lg:w-1/2 relative">
-          <div className="absolute inset-0 bg-gradient-to-br from-green-600 to-green-800">
-            <div className="w-full h-full bg-cover bg-center relative" style={{backgroundImage: "url('/sidebar.jpg')"}}>
-              <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-center p-8">
-              </div>
+  return (
+    <div className="min-h-screen bg-gray-900 flex">
+      {/* Your existing sidebar */}
+      <div className="hidden lg:flex lg:w-1/2 relative">
+        <div className="absolute inset-0 bg-gradient-to-br from-green-600 to-green-800">
+          <div className="w-full h-full bg-cover bg-center relative" style={{backgroundImage: "url('/sidebar.jpg')"}}>
+            <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-center p-8">
             </div>
           </div>
         </div>
+      </div>
 
-        <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-gray-900">
-          <div className="w-full max-w-md">
-            <div className="lg:hidden text-center mb-8">
-              <div className="text-3xl font-bold text-white mb-2">KIIT Gallery</div>
-            </div>
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-gray-900">
+        <div className="w-full max-w-md">
+          {/* Show password reset form if requested */}
+          {showPasswordReset ? (
+            <>
+              {!resetEmailSent ? (
+                <>
+                  <div className="text-center mb-8">
+                    <h2 className="text-3xl font-bold text-white mb-2">Reset Password</h2>
+                    <p className="text-gray-400">
+                      Enter your email address and we'll send you a secure reset link
+                    </p>
+                  </div>
 
-            <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold text-white mb-2">
-                {authMode === 'login' ? 'Welcome back' : 'Create an account'}
-              </h2>
-              <p className="text-gray-400">
-                {authMode === 'login' ? (
-                  <>Don't have an account? <button onClick={() => setAuthMode('register')} className="text-green-500 hover:text-green-400">Sign up</button></>
-                ) : (
-                  <>Already have an account? <button onClick={() => setAuthMode('login')} className="text-green-500 hover:text-green-400">Log in</button></>
-                )}
-              </p>
-            </div>
+                  <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-blue-400 text-sm">
+                    <div className="font-medium mb-1">Password reset available for:</div>
+                    <div className="text-xs font-mono">
+                      {ALLOWED_DOMAINS.join(', ')}
+                    </div>
+                  </div>
 
-            {/* Domain restriction notice for registration */}
-            {authMode === 'register' && (
-              <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-blue-400 text-sm">
-                <div className="font-medium mb-1">Registration Requirements:</div>
-                <div className="text-xs">Only email addresses from these domains are allowed:</div>
-                <div className="text-xs font-mono mt-1">
-                  {ALLOWED_DOMAINS.join(', ')}
+                  {authError && (
+                    <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
+                      {authError}
+                    </div>
+                  )}
+
+                  <div className="space-y-4">
+                    <input
+                      type="email"
+                      placeholder="Enter your email address"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    />
+
+                    <button
+                      onClick={handlePasswordReset}
+                      disabled={isResettingPassword || !email}
+                      className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white py-3 px-4 rounded-lg font-medium transition-colors duration-200"
+                    >
+                      {isResettingPassword ? (
+                        <div className="flex items-center justify-center">
+                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                          Sending Reset Link...
+                        </div>
+                      ) : (
+                        'Send Reset Link'
+                      )}
+                    </button>
+                  </div>
+
+                  <div className="text-center mt-6">
+                    <button
+                      onClick={() => {
+                        setShowPasswordReset(false);
+                        setAuthError('');
+                        setResetEmailSent(false);
+                      }}
+                      className="text-green-500 hover:text-green-400 text-sm"
+                    >
+                      ← Back to Login
+                    </button>
+                  </div>
+                </>
+              ) : (
+                /* Reset email sent confirmation */
+                <div className="text-center">
+                  <h2 className="text-2xl font-bold text-white mb-4">Check Your Email</h2>
+                  
+                  <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 mb-6">
+                    <p className="text-gray-300 mb-4">
+                      We've sent a password reset link to:
+                    </p>
+                    <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3 mb-4">
+                      <span className="text-green-400 font-medium">{email}</span>
+                    </div>
+                    <div className="text-sm text-gray-400 space-y-1">
+                      <p>• Click the link in the email to reset your password</p>
+                      <p>• The link will expire in 1 hour for security</p>
+                      <p>• Check your spam folder if you don't see it</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <button
+                      onClick={handlePasswordReset}
+                      disabled={isResettingPassword}
+                      className="w-full bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 text-white py-2.5 px-4 rounded-lg font-medium transition-colors duration-200 text-sm"
+                    >
+                      {isResettingPassword ? 'Resending...' : 'Resend Reset Link'}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setShowPasswordReset(false);
+                        setAuthError('');
+                        setResetEmailSent(false);
+                        setEmail('');
+                      }}
+                      className="w-full text-green-500 hover:text-green-400 py-2 text-sm transition-colors"
+                    >
+                      ← Back to Login
+                    </button>
+                  </div>
                 </div>
+              )}
+            </>
+          ) : (
+            /* Your existing login/register form */
+            <>
+              <div className="lg:hidden text-center mb-8">
+                <div className="text-3xl font-bold text-white mb-2">KIIT Gallery</div>
               </div>
-            )}
 
-            {authError && (
-              <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
-                {authError}
+              <div className="text-center mb-8">
+                <h2 className="text-3xl font-bold text-white mb-2">
+                  {authMode === 'login' ? 'Welcome back' : 'Create an account'}
+                </h2>
+                <p className="text-gray-400">
+                  {authMode === 'login' ? (
+                    <>Don't have an account? <button onClick={() => setAuthMode('register')} className="text-green-500 hover:text-green-400">Sign up</button></>
+                  ) : (
+                    <>Already have an account? <button onClick={() => setAuthMode('login')} className="text-green-500 hover:text-green-400">Log in</button></>
+                  )}
+                </p>
               </div>
-            )}
 
-            <div className="space-y-4">
-              <input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              />
+              {/* Your existing registration notice and error display */}
+              {authMode === 'register' && (
+                <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-blue-400 text-sm">
+                  <div className="font-medium mb-1">Registration Requirements:</div>
+                  <div className="text-xs">Only email addresses from these domains are allowed:</div>
+                  <div className="text-xs font-mono mt-1">
+                    {ALLOWED_DOMAINS.join(', ')}
+                  </div>
+                </div>
+              )}
 
-              <div className="relative">
+              {authError && (
+                <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
+                  {authError}
+                </div>
+              )}
+
+              {/* Your existing form inputs */}
+              <div className="space-y-4">
+                <input
+                  type="email"
+                  placeholder="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+
                 <input
                   type="password"
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent pr-12"
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
+
+                <button
+                  onClick={handleAuth}
+                  disabled={authLoading}
+                  className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white py-3 px-4 rounded-lg font-medium transition-colors duration-200"
+                >
+                  {authLoading ? (
+                    <div className="flex items-center justify-center">
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                      Loading...
+                    </div>
+                  ) : (
+                    authMode === 'login' ? 'Sign In' : 'Create account'
+                  )}
+                </button>
+              </div>
+
+              {/* Your existing Google sign-in button */}
+              <div className="my-6 flex items-center">
+                <div className="flex-1 border-t border-gray-700"></div>
+                <span className="px-4 text-gray-400 text-sm">Or continue with</span>
+                <div className="flex-1 border-t border-gray-700"></div>
               </div>
 
               <button
-                onClick={handleAuth}
+                onClick={handleGoogleSignIn}
                 disabled={authLoading}
-                className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white py-3 px-4 rounded-lg font-medium transition-colors duration-200"
+                className="w-full bg-white hover:bg-gray-50 disabled:bg-gray-300 disabled:cursor-not-allowed text-gray-900 py-3 px-4 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center border border-gray-300"
               >
+   
                 {authLoading ? (
                   <div className="flex items-center justify-center">
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                    <div className="w-5 h-5 border-2 border-gray-600 border-t-transparent rounded-full animate-spin mr-2"></div>
                     Loading...
                   </div>
                 ) : (
-                  authMode === 'login' ? 'Sign In' : 'Create account'
-                )}
+                  <>
+                    <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
+                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                      </svg>
+                      Continue with Google
+                    </>
+                )} 
+  
               </button>
-            </div>
 
-            <div className="my-6 flex items-center">
-              <div className="flex-1 border-t border-gray-700"></div>
-              <span className="px-4 text-gray-400 text-sm">Or continue with</span>
-              <div className="flex-1 border-t border-gray-700"></div>
-            </div>
-
-            {/* Google Sign-in Button */}
-            <button
-              onClick={handleGoogleSignIn}
-              disabled={authLoading}
-              className="w-full bg-white hover:bg-gray-50 disabled:bg-gray-300 disabled:cursor-not-allowed text-gray-900 py-3 px-4 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center border border-gray-300"
-            >
-              {authLoading ? (
-                <div className="flex items-center justify-center">
-                  <div className="w-5 h-5 border-2 border-gray-600 border-t-transparent rounded-full animate-spin mr-2"></div>
-                  Loading...
+              {/* Enhanced forgot password link - only show for login */}
+              {authMode === 'login' && (
+                <div className="text-center mt-6">
+                  <button
+                    onClick={() => {
+                      setShowPasswordReset(true);
+                      setAuthError('');
+                    }}
+                    className="text-green-500 hover:text-green-400 text-sm transition-colors"
+                  >
+                    Forgot your password?
+                  </button>
                 </div>
-              ) : (
-                <>
-                  <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                  </svg>
-                  Continue with Google
-                </>
               )}
-            </button>
-
-            {authMode === 'login' && (
-              <div className="text-center mt-6">
-                <button
-                  onClick={handlePasswordReset}
-                  className="text-green-500 hover:text-green-400 text-sm"
-                >
-                  Forgot your password?
-                </button>
-              </div>
-            )}
-          </div>
+            </>
+          )}
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   return (
     <div className="min-h-screen bg-gray-50">
